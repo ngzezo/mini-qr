@@ -115,7 +115,7 @@ const isModeToggleDisabled = computed(() => {
       class="hidden md:mx-auto md:mb-4 md:mt-8 md:flex md:w-5/6 md:flex-row md:justify-between md:ps-4"
     >
       <div class="flex items-center">
-        <h1 class="text-3xl text-gray-700 dark:text-gray-100">MiniQR</h1>
+        <h1 class="text-3xl text-gray-700 dark:text-gray-100">SDS QR Manager</h1>
 
         <!-- Mode toggle button - only visible on desktop -->
         <div
@@ -181,7 +181,7 @@ const isModeToggleDisabled = computed(() => {
       <div class="flex items-center justify-end gap-2">
         <a
           class="icon-button"
-          href="https://github.com/lyqht/mini-qr"
+          href="https://github.com/ngzezo"
           target="_blank"
           :aria-label="t('GitHub repository for this project')"
         >

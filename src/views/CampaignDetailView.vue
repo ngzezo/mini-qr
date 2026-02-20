@@ -7,6 +7,7 @@ import { Chart, registerables } from 'chart.js'
 import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { CornerDotType, CornerSquareType, DotType, ErrorCorrectionLevel } from 'qr-code-styling'
+import { downloadPngElement, downloadJpgElement, downloadSvgElement } from '@/utils/convertToImage'
 
 Chart.register(...registerables)
 
@@ -86,6 +87,17 @@ function loadLogoFile(e: Event) {
 }
 
 function clearLogo() { styleForm.value.image = null }
+
+function downloadCampaignQR(format: 'png' | 'jpg' | 'svg') {
+  const el = document.getElementById('campaign-qr-export')
+  if (!el) return
+  const name = (styleForm.value.name || 'qr-code').replace(/[^a-zA-Z0-9_-]/g, '_')
+  const size = { width: styleForm.value.width, height: styleForm.value.height }
+  const radius = `${styleForm.value.borderRadius}px`
+  if (format === 'png') downloadPngElement(el, `${name}.png`, size, radius)
+  else if (format === 'jpg') downloadJpgElement(el, `${name}.jpg`, { ...size, bgcolor: 'white' }, radius)
+  else downloadSvgElement(el, `${name}.svg`, size, radius)
+}
 
 // ── Live QR preview built from styleForm ─────────────────────────────────
 const PREVIEW_SIZE = 200
@@ -321,9 +333,17 @@ onMounted(load)
           <h3 class="mb-4 font-semibold text-zinc-900 dark:text-zinc-100">Campaign Settings</h3>
 
           <!-- Live preview -->
-          <div class="mb-4 flex justify-center">
-            <div class="grid place-items-center overflow-hidden rounded-xl" :style="liveQrStyle">
+          <div class="mb-3 flex flex-col items-center gap-2">
+            <div id="campaign-qr-export" class="grid place-items-center overflow-hidden rounded-xl" :style="liveQrStyle">
               <StyledQRCode v-bind="liveQrProps" />
+            </div>
+            <div class="flex gap-2">
+              <button type="button" @click="downloadCampaignQR('png')"
+                class="rounded-md border border-zinc-300 bg-white px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600">PNG</button>
+              <button type="button" @click="downloadCampaignQR('jpg')"
+                class="rounded-md border border-zinc-300 bg-white px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600">JPG</button>
+              <button type="button" @click="downloadCampaignQR('svg')"
+                class="rounded-md border border-zinc-300 bg-white px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600">SVG</button>
             </div>
           </div>
 

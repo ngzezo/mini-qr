@@ -164,13 +164,13 @@ onUnmounted(() => {
       <div class="flex flex-col gap-4">
         <!-- App title -->
         <div class="flex items-center">
-          <h1 class="text-xl text-gray-700 dark:text-gray-100">MiniQR</h1>
+          <h1 class="text-xl text-gray-700 dark:text-gray-100">SDS QR Manager</h1>
         </div>
 
         <!-- GitHub link -->
         <a
           class="flex items-center gap-2 rounded-md px-2 py-1.5 text-zinc-800 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
-          href="https://github.com/lyqht/mini-qr"
+          href="https://github.com/ngzezo"
           target="_blank"
           :aria-label="t('GitHub repository for this project')"
         >

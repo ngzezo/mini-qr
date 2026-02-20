@@ -31,7 +31,7 @@ async function submit() {
   <div class="flex min-h-screen items-center justify-center bg-white p-4 dark:bg-zinc-900">
     <div class="w-full max-w-sm space-y-6">
       <div class="text-center">
-        <h1 class="text-3xl font-bold text-zinc-900 dark:text-zinc-100">MiniQR</h1>
+        <h1 class="text-3xl font-bold text-zinc-900 dark:text-zinc-100">SDS QR Manager</h1>
         <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Sign in to manage dynamic QR codes</p>
       </div>
 

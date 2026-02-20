@@ -34,8 +34,8 @@ export default defineConfig(({ mode }) => {
           'app_icons/web/splash-2048x2732@2x.png'
         ],
         manifest: {
-          name: 'MiniQR',
-          short_name: 'MiniQR',
+          name: 'SDS QR Manager',
+          short_name: 'SDS QR',
           description: 'A minimal QR code generator and scanner',
           theme_color: '#ffffff',
           background_color: '#ffffff',

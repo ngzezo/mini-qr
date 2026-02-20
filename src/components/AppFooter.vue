@@ -61,10 +61,10 @@ onMounted(() => {
     <div class="flex items-center gap-2">
       <span>{{ t('Created by') }}</span>
       <a
-        href="https://github.com/lyqht"
+        href="https://spire-digitals.com"
         target="_blank"
         class="text-zinc-900 hover:text-zinc-700 dark:text-zinc-100 dark:hover:text-zinc-300"
-        >Estee Tey 🐧🌻</a
+        >Spire Digital Solutions LLC</a
       >
       <span>|</span>
       <Dialog>
