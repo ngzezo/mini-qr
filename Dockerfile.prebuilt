@@ -1,0 +1,21 @@
+# Prebuilt Dockerfile — use when `dist/` has already been built on the host.
+# This avoids running the memory-intensive Vite build inside the container,
+# making it suitable for multi-arch (amd64 + arm64) builds via buildx.
+
+FROM node:lts-alpine AS production
+WORKDIR /app
+
+# Copy pre-built frontend assets (built on host before docker build)
+COPY dist ./dist
+COPY public ./public
+
+# Install server production dependencies
+COPY server/package.json ./server/
+RUN cd server && npm install --omit=dev
+
+COPY server ./server
+
+EXPOSE 3001
+ENV NODE_ENV=production
+
+CMD ["node", "server/index.js"]

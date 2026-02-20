@@ -27,7 +27,7 @@ RUN npm install -g pnpm
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
-RUN pnpm run build
+RUN NODE_OPTIONS=--max-old-space-size=4096 pnpm run build
 
 # Production stage — run the Express server (serves API + built frontend)
 FROM node:lts-alpine AS production
