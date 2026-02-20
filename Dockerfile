@@ -44,4 +44,7 @@ COPY server ./server
 EXPOSE 3001
 ENV NODE_ENV=production
 
+# Persist database and uploaded files across container restarts/removals
+VOLUME ["/app/data"]
+
 CMD ["node", "server/index.js"]
