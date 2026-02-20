@@ -1,0 +1,26 @@
+# Per-Dockerfile ignore for Dockerfile.prebuilt
+# dist/ must be included (it is pre-built on the host before this image is built)
+node_modules
+npm-debug.log
+.env
+*.local
+coverage
+.DS_Store
+.git
+.gitignore
+.vscode
+*.swp
+*.swo
+*.log
+*.pid
+*.seed
+*.pid.lock
+src
+locales
+scripts
+tests
+public/presets
+*.config.js
+*.config.ts
+*.json
+!server/package.json
