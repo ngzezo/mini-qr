@@ -98,11 +98,10 @@ onMounted(() => {
       </Dialog>
       <span>|</span>
       <a
-        href="https://blog.esteetey.dev/sponsor"
-        target="_blank"
+        href="mailto:info@spire-digitals.com"
         class="secondary-button"
-        :aria-label="t('Sponsor')"
-        >{{ t('Sponsor') }}</a
+        :aria-label="t('Contact us')"
+        >Contact us</a
       >
     </div>
   </footer>
