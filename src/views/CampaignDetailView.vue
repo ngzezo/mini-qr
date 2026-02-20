@@ -375,7 +375,7 @@ onMounted(load)
 
           <!-- Live preview -->
           <div class="mb-3 flex flex-col items-center gap-2">
-            <div id="campaign-qr-export" class="grid place-items-center">
+            <div id="campaign-qr-export" class="inline-grid place-items-center p-2">
               <QRCodeFrame v-if="styleForm.showFrame"
                 :frame-text="styleForm.frameText"
                 :text-position="styleForm.frameTextPosition"

@@ -4,8 +4,11 @@ import { ref } from 'vue'
 export const useSiteSettingsStore = defineStore('siteSettings', () => {
   const logoUrl = ref<string | null>(null)
   const faviconUrl = ref<string | null>(null)
+  let loaded = false
 
   async function loadSettings() {
+    if (loaded) return
+    loaded = true
     try {
       const res = await fetch('/api/settings')
       if (!res.ok) return
@@ -13,7 +16,6 @@ export const useSiteSettingsStore = defineStore('siteSettings', () => {
       if (data.logo) logoUrl.value = data.logo
       if (data.favicon) {
         faviconUrl.value = data.favicon
-        // Update browser favicon dynamically
         const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
         if (link) link.href = data.favicon
         const appleLink = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]')
@@ -24,5 +26,13 @@ export const useSiteSettingsStore = defineStore('siteSettings', () => {
     }
   }
 
-  return { logoUrl, faviconUrl, loadSettings }
+  async function reloadAfterUpload() {
+    loaded = false
+    await loadSettings()
+  }
+
+  // Auto-load when store is first used
+  loadSettings()
+
+  return { logoUrl, faviconUrl, loadSettings, reloadAfterUpload }
 })

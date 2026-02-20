@@ -117,8 +117,10 @@ const isModeToggleDisabled = computed(() => {
     <div
       class="hidden md:mx-auto md:mb-4 md:mt-8 md:flex md:w-5/6 md:flex-row md:justify-between md:ps-4"
     >
-      <div class="flex items-center">
-        <img v-if="siteSettings.logoUrl" :src="siteSettings.logoUrl" alt="Logo" class="h-10 w-10 rounded-xl object-contain" />
+      <div class="flex items-center gap-4">
+        <img v-if="siteSettings.logoUrl" :src="siteSettings.logoUrl" alt="Logo" class="h-11 w-11 flex-shrink-0 rounded-xl object-contain shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700" />
+        <img v-else src="/app_icons/web/icon-192.png" alt="Logo" class="h-11 w-11 flex-shrink-0 rounded-xl object-contain shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700" />
+        <span class="hidden h-8 w-px bg-zinc-200 dark:bg-zinc-700 md:block"></span>
         <h1 class="text-3xl text-gray-700 dark:text-gray-100">SDS QR Manager</h1>
 
         <!-- Mode toggle button - only visible on desktop -->

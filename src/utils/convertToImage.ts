@@ -19,13 +19,13 @@ const getFormattedOptions = (
     )
     const radiusValue = borderRadius ? parseInt(borderRadius.replace('px', '')) : 48
     const scaledRadius = `${radiusValue / scale}px`
+    const hasRadius = radiusValue > 0
 
     return {
       style: {
         transform: `scale(${scale})`,
         transformOrigin: 'left top',
-        borderRadius: scaledRadius,
-        overflow: 'hidden'
+        ...(hasRadius ? { borderRadius: scaledRadius, overflow: 'hidden' } : {})
       },
       quality: 100,
       ...options

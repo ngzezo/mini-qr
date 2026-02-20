@@ -2,12 +2,13 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '@/utils/api'
+import { useSiteSettingsStore } from '@/stores/siteSettings'
 import { Chart, registerables } from 'chart.js'
 
 Chart.register(...registerables)
 
 const router = useRouter()
-
+const siteSettings = useSiteSettingsStore()
 interface User {
   id: number; name: string; email: string; role: string; locked: number; created_at: string
 }
@@ -67,6 +68,9 @@ async function uploadSetting(type: 'logo' | 'favicon') {
       if (link) link.href = currentFavicon.value!
     }
     settingsSuccess.value = `${type === 'logo' ? 'Logo' : 'Favicon'} updated! Reload the page to see it in the header.`
+    // Refresh the siteSettings store so header/login/register pages update immediately
+    await siteSettings.reloadAfterUpload()
+    settingsSuccess.value = `${type === 'logo' ? 'Logo' : 'Favicon'} updated successfully!`
     setTimeout(() => { settingsSuccess.value = '' }, 5000)
   } catch (e: unknown) {
     settingsError.value = e instanceof Error ? e.message : 'Upload failed'

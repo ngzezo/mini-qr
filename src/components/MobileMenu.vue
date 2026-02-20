@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useFloating, offset, flip, shift, autoUpdate } from '@floating-ui/vue'
 import LanguageSelector from '@/components/LanguageSelector.vue'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import { fetchWithBasePath } from '@/utils/basePath'
+import { useSiteSettingsStore } from '@/stores/siteSettings'
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,8 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const siteSettings = useSiteSettingsStore()
+const logoSrc = computed(() => siteSettings.logoUrl || '/app_icons/web/icon-192.png')
 const isOpen = ref(false)
 const reference = ref<HTMLElement | null>(null)
 const floating = ref<HTMLElement | null>(null)
@@ -163,7 +166,8 @@ onUnmounted(() => {
       </Dialog>
       <div class="flex flex-col gap-4">
         <!-- App title -->
-        <div class="flex items-center">
+        <div class="flex items-center gap-2">
+          <img :src="logoSrc" alt="Logo" class="h-8 w-8 flex-shrink-0 rounded-lg object-contain" />
           <h1 class="text-xl text-gray-700 dark:text-gray-100">SDS QR Manager</h1>
         </div>
 
