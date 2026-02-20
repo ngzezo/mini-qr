@@ -7,10 +7,21 @@ import AppFooter from '@/components/AppFooter.vue'
 import useDarkModePreference from '@/utils/useDarkModePreference'
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
 const { isDarkMode, isDarkModePreferenceSetBySystem, toggleDarkModePreference } =
   useDarkModePreference()
+
+const route = useRoute()
+const router = useRouter()
+const auth = useAuthStore()
+
+// Whether this is a full-screen route (no app chrome)
+const isFullScreenRoute = computed(() => ['/login', '/register'].includes(route.path))
+// Whether RouterView should handle main content (dynamic/admin pages)
+const isRouterMode = computed(() => route.path.startsWith('/dynamic') || route.path.startsWith('/admin'))
 
 const capturedData = ref<string>('')
 const qrCodeScanRef = ref<InstanceType<typeof QRCodeScan> | null>(null)
@@ -62,6 +73,18 @@ const setAppMode = (mode: AppMode) => {
   }
 
   appMode.value = mode
+  // Navigate back to home if we were in a router-mode page
+  if (isRouterMode.value) {
+    router.push('/')
+  }
+}
+
+const navigateToDynamic = () => {
+  if (auth.isLoggedIn) {
+    router.push('/dynamic')
+  } else {
+    router.push('/login')
+  }
 }
 
 const useCapturedDataInCreateMode = (data: string) => {
@@ -77,6 +100,11 @@ const isModeToggleDisabled = computed(() => {
 
 <template>
   <main>
+    <!-- Full-screen routes: login / register -->
+    <RouterView v-if="isFullScreenRoute" />
+
+    <!-- App shell with header -->
+    <template v-else>
     <!-- Desktop header - only visible on desktop -->
     <div
       class="hidden md:mx-auto md:mb-4 md:mt-8 md:flex md:w-5/6 md:flex-row md:justify-between md:ps-4"
@@ -91,7 +119,7 @@ const isModeToggleDisabled = computed(() => {
           <button
             :class="[
               'flex items-center gap-1 rounded-md px-2 py-1 text-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-zinc-700 dark:focus-visible:ring-zinc-200 md:gap-2 md:px-3 md:py-1.5 md:text-base',
-              appMode === AppMode.Create
+              appMode === AppMode.Create && !isRouterMode
                 ? 'bg-white text-zinc-900 shadow dark:bg-zinc-700 dark:text-zinc-100'
                 : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
             ]"
@@ -110,7 +138,7 @@ const isModeToggleDisabled = computed(() => {
           <button
             :class="[
               'flex items-center gap-1 rounded-md px-2 py-1 text-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-zinc-700 dark:focus-visible:ring-zinc-200 md:gap-2 md:px-3 md:py-1.5 md:text-base',
-              appMode === AppMode.Scan
+              appMode === AppMode.Scan && !isRouterMode
                 ? 'bg-white text-zinc-900 shadow dark:bg-zinc-700 dark:text-zinc-100'
                 : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
             ]"
@@ -125,6 +153,22 @@ const isModeToggleDisabled = computed(() => {
               />
             </svg>
             <span>{{ t('Scan') }}</span>
+          </button>
+          <!-- Dynamic QR tab -->
+          <button
+            :class="[
+              'flex items-center gap-1 rounded-md px-2 py-1 text-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-zinc-700 dark:focus-visible:ring-zinc-200 md:gap-2 md:px-3 md:py-1.5 md:text-base',
+              isRouterMode
+                ? 'bg-white text-zinc-900 shadow dark:bg-zinc-700 dark:text-zinc-100'
+                : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
+            ]"
+            @click="navigateToDynamic"
+            :aria-label="'Switch to Dynamic QR Mode'"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M3.5 18.5L2 17l7.5-7.5l4 4L20 6.5L21.5 8l-8 8l-4-4z"/>
+            </svg>
+            <span>Dynamic</span>
           </button>
         </div>
       </div>
@@ -213,7 +257,7 @@ const isModeToggleDisabled = computed(() => {
           <button
             :class="[
               'flex items-center gap-1 rounded-md px-2 py-1 text-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-zinc-700 dark:focus-visible:ring-zinc-200',
-              appMode === AppMode.Create
+              appMode === AppMode.Create && !isRouterMode
                 ? 'bg-white text-zinc-900 shadow dark:bg-zinc-700 dark:text-zinc-100'
                 : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100',
               isHeaderCollapsed ? 'py-0.5 text-xs' : 'py-1 text-sm'
@@ -238,7 +282,7 @@ const isModeToggleDisabled = computed(() => {
           <button
             :class="[
               'flex items-center gap-1 rounded-md px-2 py-1 text-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-zinc-700 dark:focus-visible:ring-zinc-200',
-              appMode === AppMode.Scan
+              appMode === AppMode.Scan && !isRouterMode
                 ? 'bg-white text-zinc-900 shadow dark:bg-zinc-700 dark:text-zinc-100'
                 : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100',
               isHeaderCollapsed ? 'py-0.5 text-xs' : 'py-1 text-sm'
@@ -260,6 +304,23 @@ const isModeToggleDisabled = computed(() => {
             </svg>
             <span>{{ t('Scan') }}</span>
           </button>
+          <!-- Dynamic QR tab (mobile) -->
+          <button
+            :class="[
+              'flex items-center gap-1 rounded-md px-2 py-1 text-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-zinc-700 dark:focus-visible:ring-zinc-200',
+              isRouterMode
+                ? 'bg-white text-zinc-900 shadow dark:bg-zinc-700 dark:text-zinc-100'
+                : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100',
+              isHeaderCollapsed ? 'py-0.5 text-xs' : 'py-1 text-sm'
+            ]"
+            @click="navigateToDynamic"
+            :aria-label="'Switch to Dynamic QR Mode'"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" :width="isHeaderCollapsed ? 14 : 18" :height="isHeaderCollapsed ? 14 : 18" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M3.5 18.5L2 17l7.5-7.5l4 4L20 6.5L21.5 8l-8 8l-4-4z"/>
+            </svg>
+            <span>Dynamic</span>
+          </button>
 
           <!-- Hamburger menu -->
           <MobileMenu
@@ -274,8 +335,10 @@ const isModeToggleDisabled = computed(() => {
     <div
       class="relative grid min-h-screen place-items-center items-start bg-white p-8 pt-16 dark:bg-zinc-900 md:px-6 md:pt-8"
     >
-      <!-- Main content area with conditional rendering based on app mode -->
-      <div class="w-full lg:w-5/6">
+      <!-- Router-based views (Dynamic QR, Admin) -->
+      <RouterView v-if="isRouterMode" />
+      <!-- Static QR: Create & Scan modes -->
+      <div v-else class="w-full lg:w-5/6">
         <div v-if="appMode === AppMode.Create">
           <QRCodeCreate :initial-data="capturedData" />
         </div>
@@ -285,6 +348,7 @@ const isModeToggleDisabled = computed(() => {
       </div>
     </div>
     <AppFooter />
+    </template>
   </main>
 </template>
 

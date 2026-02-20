@@ -11,6 +11,7 @@ export default [
       'dist/**',
       'dev-dist/**',
       'node_modules/**',
+      'server/**',
       '*.config.js',
       'public/**',
       'pnpm-lock.yaml'
@@ -67,6 +68,11 @@ export default [
         setInterval: 'readonly',
         clearInterval: 'readonly',
         fetch: 'readonly',
+        FormData: 'readonly',
+        HTMLCanvasElement: 'readonly',
+        HTMLDivElement: 'readonly',
+        alert: 'readonly',
+        confirm: 'readonly',
         // Node globals
         process: 'readonly',
         __dirname: 'readonly',
