@@ -106,8 +106,18 @@ function downloadCampaignQR(format: 'png' | 'jpg' | 'svg') {
   const el = document.getElementById('campaign-qr-export')
   if (!el) return
   const name = (styleForm.value.name || 'qr-code').replace(/[^a-zA-Z0-9_-]/g, '_')
-  const size = { width: styleForm.value.width, height: styleForm.value.height }
-  const radius = `${styleForm.value.borderRadius}px`
+
+  // Use the element's actual rendered dimensions × quality multiplier
+  // This handles both plain QR and framed QR correctly regardless of size
+  const QUALITY = 3
+  const naturalW = el.offsetWidth || styleForm.value.width
+  const naturalH = el.offsetHeight || styleForm.value.height
+  const size = { width: naturalW * QUALITY, height: naturalH * QUALITY }
+
+  // Don't clip with QR border-radius when a frame is visible —
+  // the frame has its own border-radius via inline styles
+  const radius = styleForm.value.showFrame ? '0px' : `${styleForm.value.borderRadius}px`
+
   if (format === 'png') downloadPngElement(el, `${name}.png`, size, radius)
   else if (format === 'jpg') downloadJpgElement(el, `${name}.jpg`, { ...size, bgcolor: 'white' }, radius)
   else downloadSvgElement(el, `${name}.svg`, size, radius)
