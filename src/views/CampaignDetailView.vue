@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, nextTick, watch } from 'vue'
+import { ref, onMounted, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/utils/api'
 import StyledQRCode from '@/components/StyledQRCode.vue'
@@ -192,12 +192,12 @@ async function load() {
   try {
     data.value = await api.get(`/campaigns/${route.params.id}/analytics`)
     populateFormFromCampaign()
+    loading.value = false
     await nextTick()
     renderCharts()
     renderMap()
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'Failed to load'
-  } finally {
     loading.value = false
   }
 }

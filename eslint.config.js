@@ -71,6 +71,7 @@ export default [
         FormData: 'readonly',
         HTMLCanvasElement: 'readonly',
         HTMLDivElement: 'readonly',
+        HTMLLinkElement: 'readonly',
         alert: 'readonly',
         confirm: 'readonly',
         // Node globals
