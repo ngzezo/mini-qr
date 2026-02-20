@@ -87,6 +87,11 @@ const navigateToDynamic = () => {
   }
 }
 
+const handleLogout = () => {
+  auth.logout()
+  router.push('/login')
+}
+
 const useCapturedDataInCreateMode = (data: string) => {
   capturedData.value = data
   appMode.value = AppMode.Create
@@ -154,7 +159,7 @@ const isModeToggleDisabled = computed(() => {
             </svg>
             <span>{{ t('Scan') }}</span>
           </button>
-          <!-- Dynamic QR tab -->
+          <!-- My QR Codes tab (campaign list) -->
           <button
             :class="[
               'flex items-center gap-1 rounded-md px-2 py-1 text-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-zinc-700 dark:focus-visible:ring-zinc-200 md:gap-2 md:px-3 md:py-1.5 md:text-base',
@@ -163,12 +168,12 @@ const isModeToggleDisabled = computed(() => {
                 : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'
             ]"
             @click="navigateToDynamic"
-            :aria-label="'Switch to Dynamic QR Mode'"
+            :aria-label="'My QR Codes'"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">
               <path fill="currentColor" d="M3.5 18.5L2 17l7.5-7.5l4 4L20 6.5L21.5 8l-8 8l-4-4z"/>
             </svg>
-            <span>Dynamic</span>
+            <span>My QR Codes</span>
           </button>
         </div>
       </div>
@@ -242,6 +247,17 @@ const isModeToggleDisabled = computed(() => {
           </span>
         </button>
         <LanguageSelector />
+        <button
+          v-if="auth.isLoggedIn"
+          class="icon-button"
+          @click="handleLogout"
+          aria-label="Log out"
+          title="Log out"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+            <path fill="#abcbca" d="M5 21q-.825 0-1.412-.587T3 19V5q0-.825.588-1.412T5 3h7v2H5v14h7v2zm11-4l-1.375-1.45l2.55-2.55H9v-2h8.175l-2.55-2.55L16 7l5 5z"/>
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -304,7 +320,7 @@ const isModeToggleDisabled = computed(() => {
             </svg>
             <span>{{ t('Scan') }}</span>
           </button>
-          <!-- Dynamic QR tab (mobile) -->
+          <!-- My QR Codes tab (mobile) -->
           <button
             :class="[
               'flex items-center gap-1 rounded-md px-2 py-1 text-sm outline-none transition-colors focus-visible:ring-1 focus-visible:ring-zinc-700 dark:focus-visible:ring-zinc-200',
@@ -314,12 +330,28 @@ const isModeToggleDisabled = computed(() => {
               isHeaderCollapsed ? 'py-0.5 text-xs' : 'py-1 text-sm'
             ]"
             @click="navigateToDynamic"
-            :aria-label="'Switch to Dynamic QR Mode'"
+            :aria-label="'My QR Codes'"
           >
             <svg xmlns="http://www.w3.org/2000/svg" :width="isHeaderCollapsed ? 14 : 18" :height="isHeaderCollapsed ? 14 : 18" viewBox="0 0 24 24">
               <path fill="currentColor" d="M3.5 18.5L2 17l7.5-7.5l4 4L20 6.5L21.5 8l-8 8l-4-4z"/>
             </svg>
-            <span>Dynamic</span>
+            <span>My QR Codes</span>
+          </button>
+
+          <!-- Logout button (mobile, shown when logged in) -->
+          <button
+            v-if="auth.isLoggedIn"
+            :class="[
+              'flex items-center gap-1 rounded-md px-2 py-1 text-sm outline-none transition-colors text-zinc-600 hover:text-red-500 dark:text-zinc-400 dark:hover:text-red-400',
+              isHeaderCollapsed ? 'py-0.5 text-xs' : 'py-1 text-sm'
+            ]"
+            @click="handleLogout"
+            aria-label="Log out"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" :width="isHeaderCollapsed ? 14 : 18" :height="isHeaderCollapsed ? 14 : 18" viewBox="0 0 24 24">
+              <path fill="currentColor" d="M5 21q-.825 0-1.412-.587T3 19V5q0-.825.588-1.412T5 3h7v2H5v14h7v2zm11-4l-1.375-1.45l2.55-2.55H9v-2h8.175l-2.55-2.55L16 7l5 5z"/>
+            </svg>
+            <span>Logout</span>
           </button>
 
           <!-- Hamburger menu -->

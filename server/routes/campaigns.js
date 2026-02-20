@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
   try {
     const db = await getDb()
     const campaigns = db.prepare(`
-      SELECT c.id, c.user_id, c.name, c.destination_url, c.short_code, c.fg_color, c.bg_color, c.logo_url, c.created_at, c.updated_at,
+      SELECT c.id, c.user_id, c.name, c.destination_url, c.short_code, c.fg_color, c.bg_color, c.logo_url, c.qr_options, c.created_at, c.updated_at,
              COUNT(s.id) as scan_count
       FROM campaigns c
       LEFT JOIN scans s ON s.campaign_id = c.id
@@ -35,13 +35,18 @@ router.get('/', async (req, res) => {
 
 router.post('/', upload.single('logo'), async (req, res) => {
   try {
-    const { name, destination_url, fg_color, bg_color } = req.body
+    const { name, destination_url, fg_color, bg_color, qr_options } = req.body
     if (!name || !destination_url) return res.status(400).json({ error: 'name and destination_url required' })
     const db = await getDb()
+    // Enforce unique name per user
+    const existing = db.prepare('SELECT id FROM campaigns WHERE user_id = ? AND name = ?').get(req.user.id, name)
+    if (existing) return res.status(409).json({ error: `You already have a campaign named "${name}". Please choose a different name.` })
     const short_code = nanoid(8)
     const logo_url = req.file ? `/uploads/${req.file.filename}` : null
-    const result = db.prepare(`INSERT INTO campaigns (user_id, name, destination_url, short_code, fg_color, bg_color, logo_url) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
-      req.user.id, name, destination_url, short_code, fg_color || '#000000', bg_color || '#ffffff', logo_url
+    // Keep qr_options as-is (base64 images are allowed; body limit is 10MB)
+    const sanitizedQrOptions = qr_options || null
+    const result = db.prepare(`INSERT INTO campaigns (user_id, name, destination_url, short_code, fg_color, bg_color, logo_url, qr_options) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      req.user.id, name, destination_url, short_code, fg_color || '#000000', bg_color || '#ffffff', logo_url, sanitizedQrOptions
     )
     const campaign = db.prepare('SELECT * FROM campaigns WHERE id = ?').get(result.lastInsertRowid)
     res.status(201).json(campaign)
@@ -64,11 +69,12 @@ router.put('/:id', upload.single('logo'), async (req, res) => {
     const campaign = db.prepare('SELECT * FROM campaigns WHERE id = ?').get(req.params.id)
     if (!campaign) return res.status(404).json({ error: 'Not found' })
     if (campaign.user_id !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' })
-    const { name, destination_url, fg_color, bg_color } = req.body
+    const { name, destination_url, fg_color, bg_color, qr_options } = req.body
     const logo_url = req.file ? `/uploads/${req.file.filename}` : campaign.logo_url
-    db.prepare(`UPDATE campaigns SET name=?, destination_url=?, fg_color=?, bg_color=?, logo_url=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`).run(
+    db.prepare(`UPDATE campaigns SET name=?, destination_url=?, fg_color=?, bg_color=?, logo_url=?, qr_options=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`).run(
       name || campaign.name, destination_url || campaign.destination_url,
-      fg_color || campaign.fg_color, bg_color || campaign.bg_color, logo_url, campaign.id
+      fg_color || campaign.fg_color, bg_color || campaign.bg_color, logo_url,
+      qr_options !== undefined ? qr_options : campaign.qr_options, campaign.id
     )
     res.json(db.prepare('SELECT * FROM campaigns WHERE id = ?').get(campaign.id))
   } catch (err) { console.error(err); res.status(500).json({ error: 'Server error' }) }

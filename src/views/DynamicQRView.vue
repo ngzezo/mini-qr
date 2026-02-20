@@ -16,6 +16,7 @@ interface Campaign {
   fg_color: string
   bg_color: string
   logo_url: string | null
+  qr_options: string | null
   scan_count: number
   created_at: string
 }
@@ -26,6 +27,34 @@ const error = ref('')
 const showCreate = ref(false)
 const creating = ref(false)
 const deleteId = ref<number | null>(null)
+
+function parsedQrOptions(campaign: Campaign) {
+  if (!campaign.qr_options) return null
+  try { return JSON.parse(campaign.qr_options) } catch { return null }
+}
+
+// Returns the wrapper-div CSS style (background + borderRadius)
+function qrStyle(campaign: Campaign): Record<string, string> {
+  const opts = parsedQrOptions(campaign)
+  if (opts?.style) return opts.style
+  return { background: campaign.bg_color }
+}
+
+// Returns props to spread directly onto StyledQRCode
+function qrProps(campaign: Campaign, trackingData: string, size = 120): Record<string, unknown> {
+  const opts = parsedQrOptions(campaign)
+  if (opts) {
+    // Destructure out the non-StyledQRCode fields
+    const { style: _s, includeBackground: _ib, ...rest } = opts
+    return { ...rest, data: trackingData, width: size, height: size }
+  }
+  return {
+    data: trackingData, width: size, height: size,
+    dotsOptions: { color: campaign.fg_color, type: 'square' },
+    cornersSquareOptions: { color: campaign.fg_color },
+    cornersDotOptions: { color: campaign.fg_color }
+  }
+}
 
 // Create form
 const form = ref({
@@ -97,9 +126,9 @@ onMounted(loadCampaigns)
     <!-- Header row -->
     <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Dynamic QR Codes</h2>
+        <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">My QR Codes</h2>
         <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-          QR codes with changeable destinations and scan tracking
+          Dynamic QR codes saved from the designer — trackable &amp; editable
         </p>
       </div>
       <div class="flex gap-2">
@@ -110,12 +139,12 @@ onMounted(loadCampaigns)
         >
           Admin Panel
         </RouterLink>
-        <button
-          @click="showCreate = true"
+        <RouterLink
+          to="/"
           class="rounded-lg bg-zinc-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
         >
-          + New Campaign
-        </button>
+          + Design New QR
+        </RouterLink>
       </div>
     </div>
 
@@ -132,10 +161,11 @@ onMounted(loadCampaigns)
       <svg xmlns="http://www.w3.org/2000/svg" class="mb-3 text-zinc-400" width="48" height="48" viewBox="0 0 24 24">
         <path fill="currentColor" d="M3 11h8V3H3zm2-6h4v4H5zM3 21h8v-8H3zm2-6h4v4H5zm8-12v8h8V3zm6 6h-4V5h4zm-6 12h8v-8h-8zm2-6h4v4h-4z"/>
       </svg>
-      <p class="text-zinc-500 dark:text-zinc-400">No dynamic QR campaigns yet</p>
-      <button @click="showCreate = true" class="mt-3 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900">
-        Create your first campaign
-      </button>
+      <p class="text-zinc-500 dark:text-zinc-400">No dynamic QR codes yet</p>
+      <p class="mt-1 text-xs text-zinc-400 dark:text-zinc-500">Design a QR code and click "Save as Dynamic QR" to get started</p>
+      <RouterLink to="/" class="mt-3 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900">
+        Go to QR Designer
+      </RouterLink>
     </div>
 
     <!-- Campaign grid -->
@@ -147,16 +177,8 @@ onMounted(loadCampaigns)
       >
         <!-- QR preview -->
         <div class="mb-3 flex justify-center">
-          <div class="rounded-lg p-2" :style="{ backgroundColor: campaign.bg_color }">
-            <StyledQRCode
-              :data="trackingUrl(campaign.short_code)"
-              :width="120"
-              :height="120"
-              :dots-options="{ color: campaign.fg_color, type: 'square' }"
-              :background-options="{ color: campaign.bg_color }"
-              :cornersSquareOptions="{ color: campaign.fg_color }"
-              :cornersDotOptions="{ color: campaign.fg_color }"
-            />
+          <div class="grid place-items-center overflow-hidden rounded-lg" :style="qrStyle(campaign)">
+            <StyledQRCode v-bind="qrProps(campaign, trackingUrl(campaign.short_code))" />
           </div>
         </div>
 

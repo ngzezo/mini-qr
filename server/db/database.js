@@ -86,9 +86,12 @@ async function getDb() {
     fg_color TEXT NOT NULL DEFAULT '#000000',
     bg_color TEXT NOT NULL DEFAULT '#ffffff',
     logo_url TEXT,
+    qr_options TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`)
+  // Migrate: add qr_options if it doesn't exist yet
+  try { sqlDb.run('ALTER TABLE campaigns ADD COLUMN qr_options TEXT') } catch (_) {}
   sqlDb.run(`CREATE TABLE IF NOT EXISTS scans (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     campaign_id INTEGER NOT NULL,

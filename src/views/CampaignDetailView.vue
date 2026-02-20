@@ -32,6 +32,7 @@ interface Analytics {
     fg_color: string
     bg_color: string
     logo_url: string | null
+    qr_options: string | null
   }
   stats: { total: number; today: number; thisWeek: number; thisMonth: number }
   recentScans: Scan[]
@@ -65,6 +66,29 @@ const editForm = ref({
 const trackingUrl = computed(() =>
   data.value ? `${window.location.origin}/r/${data.value.campaign.short_code}` : ''
 )
+
+const parsedQrOptions = computed(() => {
+  if (!data.value?.campaign.qr_options) return null
+  try { return JSON.parse(data.value.campaign.qr_options) } catch { return null }
+})
+
+const qrPreviewStyle = computed(() => {
+  if (parsedQrOptions.value?.style) return parsedQrOptions.value.style
+  return { background: editForm.value.bg_color }
+})
+
+const qrPreviewProps = computed(() => {
+  if (parsedQrOptions.value) {
+    const { style: _s, includeBackground: _ib, ...rest } = parsedQrOptions.value
+    return { ...rest, data: trackingUrl.value, width: 140, height: 140 }
+  }
+  return {
+    data: trackingUrl.value, width: 140, height: 140,
+    dotsOptions: { color: editForm.value.fg_color, type: 'square' },
+    cornersSquareOptions: { color: editForm.value.fg_color },
+    cornersDotOptions: { color: editForm.value.fg_color }
+  }
+})
 
 async function load() {
   try {
@@ -235,16 +259,8 @@ onMounted(load)
           <h3 class="mb-4 font-semibold text-zinc-900 dark:text-zinc-100">Campaign Settings</h3>
 
           <div class="mb-4 flex justify-center">
-            <div class="rounded-xl p-3" :style="{ backgroundColor: editForm.bg_color }">
-              <StyledQRCode
-                :data="trackingUrl"
-                :width="140"
-                :height="140"
-                :dots-options="{ color: editForm.fg_color, type: 'square' }"
-                :background-options="{ color: editForm.bg_color }"
-                :cornersSquareOptions="{ color: editForm.fg_color }"
-                :cornersDotOptions="{ color: editForm.fg_color }"
-              />
+            <div class="grid place-items-center overflow-hidden rounded-xl" :style="qrPreviewStyle">
+              <StyledQRCode v-bind="qrPreviewProps" />
             </div>
           </div>
 

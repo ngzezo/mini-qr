@@ -35,8 +35,8 @@ const router = createRouter({
       component: () => import('@/views/AdminView.vue'),
       meta: { requiresAuth: true, requiresAdmin: true }
     },
-    // Catch-all: handled by App.vue's Create/Scan mode logic
-    { path: '/:pathMatch(.*)*', name: 'home', component: () => import('@/views/HomeView.vue') }
+    // Catch-all: handled by App.vue's Create/Scan mode logic — requires auth
+    { path: '/:pathMatch(.*)*', name: 'home', component: () => import('@/views/HomeView.vue'), meta: { requiresAuth: true } }
   ]
 })
 
@@ -49,7 +49,7 @@ router.beforeEach((to) => {
     return { name: 'dynamic' }
   }
   if (to.meta.guest && auth.token) {
-    return { name: 'dynamic' }
+    return { name: 'home' }
   }
 })
 

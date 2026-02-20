@@ -12,8 +12,8 @@ app.use(cors({
   origin: process.env.CORS_ORIGIN || (NODE_ENV === 'production' ? false : 'http://localhost:5173'),
   credentials: true
 }))
-app.use(express.json())
-app.use(express.urlencoded({ extended: true }))
+app.use(express.json({ limit: '10mb' }))
+app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
 app.use('/uploads', express.static(path.join(__dirname, '..', 'data', 'uploads')))
 

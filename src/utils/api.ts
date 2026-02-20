@@ -17,8 +17,8 @@ async function request(method: string, path: string, body?: unknown, isFormData 
   })
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }))
-    throw new Error(err.error || 'Request failed')
+    const err = await res.json().catch(() => ({ error: `HTTP ${res.status} ${res.statusText || 'Error'}` }))
+    throw new Error(err.error || `HTTP ${res.status} error`)
   }
 
   return res.json()

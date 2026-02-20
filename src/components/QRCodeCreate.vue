@@ -4,6 +4,8 @@ import CopyImageModal from '@/components/CopyImageModal.vue'
 import DataTemplatesModal from '@/components/DataTemplatesModal.vue'
 import QRCodeFrame from '@/components/QRCodeFrame.vue'
 import StyledQRCode from '@/components/StyledQRCode.vue'
+import { useAuthStore } from '@/stores/auth'
+import { api } from '@/utils/api'
 import {
   Accordion,
   AccordionContent,
@@ -904,6 +906,72 @@ const updateDataFromModal = (newData: string) => {
   // Optionally trigger QR code regeneration here if needed
 }
 // #endregion
+
+//#region /* Save as Dynamic QR */
+const authStore = useAuthStore()
+const showSaveDynamicModal = ref(false)
+const dynamicCampaignName = ref('')
+const dynamicDestinationUrl = ref('')
+const isSavingDynamic = ref(false)
+const savedCampaign = ref<{ short_code: string; id: number } | null>(null)
+const saveDynamicError = ref('')
+
+function openSaveDynamicModal() {
+  dynamicCampaignName.value = ''
+  dynamicDestinationUrl.value = data.value || ''
+  savedCampaign.value = null
+  saveDynamicError.value = ''
+  showSaveDynamicModal.value = true
+}
+
+async function saveDynamicQR() {
+  if (!dynamicCampaignName.value.trim() || !dynamicDestinationUrl.value.trim()) {
+    saveDynamicError.value = 'Please fill in all fields.'
+    return
+  }
+  isSavingDynamic.value = true
+  saveDynamicError.value = ''
+  try {
+    // Capture the full snapshot of every styling ref so the card preview
+    // can reconstruct exactly what was designed here.
+    const snapshot = {
+      // qrCodeStyling props
+      image: image.value ?? null,
+      width: width.value,
+      height: height.value,
+      margin: margin.value,
+      imageOptions: { margin: imageMargin.value },
+      dotsOptions: { color: dotsOptionsColor.value, type: dotsOptionsType.value },
+      cornersSquareOptions: { color: cornersSquareOptionsColor.value, type: cornersSquareOptionsType.value },
+      cornersDotOptions: { color: cornersDotOptionsColor.value, type: cornersDotOptionsType.value },
+      qrOptions: { errorCorrectionLevel: errorCorrectionLevel.value },
+      // wrapper div style (background + borderRadius)
+      style: {
+        background: styleBackground.value,
+        borderRadius: styledBorderRadiusFormatted.value
+      },
+      includeBackground: includeBackground.value
+    }
+    const campaign = await api.post<{ short_code: string; id: number }>('/campaigns', {
+      name: dynamicCampaignName.value.trim(),
+      destination_url: dynamicDestinationUrl.value.trim(),
+      fg_color: dotsOptionsColor.value || '#000000',
+      bg_color: styleBackground.value || '#ffffff',
+      qr_options: JSON.stringify(snapshot)
+    })
+    savedCampaign.value = campaign
+  } catch (e: unknown) {
+    saveDynamicError.value = e instanceof Error ? e.message : 'Failed to save campaign.'
+  } finally {
+    isSavingDynamic.value = false
+  }
+}
+
+const trackingOrigin = computed(() => {
+  if (typeof window !== 'undefined') return window.location.origin
+  return ''
+})
+// #endregion
 </script>
 
 <template>
@@ -1289,8 +1357,96 @@ const updateDataFromModal = (newData: string) => {
                   </svg>
                 </button>
               </div>
+              <!-- Save as Dynamic QR — only visible when logged in -->
+              <div v-if="authStore.isLoggedIn" class="flex w-full justify-center pt-1">
+                <button
+                  class="button flex items-center gap-2 border-2 border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-600 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
+                  @click="openSaveDynamicModal"
+                  :disabled="isExportButtonDisabled"
+                  :title="isExportButtonDisabled ? t('Please enter data to encode first') : 'Save as Dynamic QR'"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M3.5 18.5L2 17l7.5-7.5l4 4L20 6.5L21.5 8l-8 8l-4-4z"/>
+                  </svg>
+                  Save as Dynamic QR
+                </button>
+              </div>
             </div>
           </section>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Save as Dynamic QR Modal -->
+    <Teleport to="body">
+      <div
+        v-if="showSaveDynamicModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+        @click.self="showSaveDynamicModal = false"
+      >
+        <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl dark:bg-zinc-900 dark:text-zinc-100">
+          <h2 class="mb-4 text-xl font-semibold text-zinc-900 dark:text-zinc-100">Save as Dynamic QR</h2>
+
+          <template v-if="!savedCampaign">
+            <p class="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+              A dynamic QR uses a short tracking link. Scans are counted and you can change the destination URL anytime without reprinting.
+            </p>
+            <div class="flex flex-col gap-4">
+              <div>
+                <label class="label mb-1 block">Campaign name</label>
+                <input
+                  v-model="dynamicCampaignName"
+                  type="text"
+                  class="text-input w-full"
+                  placeholder="e.g. My Website QR"
+                />
+              </div>
+              <div>
+                <label class="label mb-1 block">Destination URL <span class="text-zinc-400">(where the QR redirects)</span></label>
+                <input
+                  v-model="dynamicDestinationUrl"
+                  type="url"
+                  class="text-input w-full"
+                  placeholder="https://example.com"
+                />
+              </div>
+              <p v-if="saveDynamicError" class="text-sm text-red-500">{{ saveDynamicError }}</p>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+              <button class="button" @click="showSaveDynamicModal = false">Cancel</button>
+              <button
+                class="button bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
+                @click="saveDynamicQR"
+                :disabled="isSavingDynamic"
+              >
+                {{ isSavingDynamic ? 'Saving…' : 'Save' }}
+              </button>
+            </div>
+          </template>
+
+          <template v-else>
+            <div class="flex flex-col items-center gap-4 text-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" class="text-emerald-500">
+                <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2m-2 15l-5-5l1.41-1.41L10 14.17l7.59-7.59L19 8z"/>
+              </svg>
+              <p class="font-semibold text-zinc-900 dark:text-zinc-100">Dynamic QR saved!</p>
+              <p class="text-sm text-zinc-600 dark:text-zinc-400">Your tracking URL:</p>
+              <code class="w-full rounded bg-zinc-100 px-3 py-2 text-sm break-all dark:bg-zinc-800">
+                {{ trackingOrigin }}/r/{{ savedCampaign.short_code }}
+              </code>
+              <p class="text-xs text-zinc-500">Encode this URL in a QR code (with your current design) to track scans.</p>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+              <button class="button" @click="showSaveDynamicModal = false">Close</button>
+              <router-link
+                :to="`/dynamic/${savedCampaign.id}`"
+                class="button bg-zinc-800 text-white hover:bg-zinc-700 dark:bg-zinc-200 dark:text-zinc-900"
+                @click="showSaveDynamicModal = false"
+              >
+                View Analytics
+              </router-link>
+            </div>
+          </template>
         </div>
       </div>
     </Teleport>
