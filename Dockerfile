@@ -33,9 +33,6 @@ RUN pnpm run build
 FROM node:lts-alpine AS production
 WORKDIR /app
 
-# Build native modules (better-sqlite3) requires python/make/g++
-RUN apk add --no-cache python3 make g++
-
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
 

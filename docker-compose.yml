@@ -1,7 +1,7 @@
 ---
 services:
   mini-qr:
-    container_name: mini-qr
+    container_name: sds-qr-manager
     restart: unless-stopped
     build:
       context: .
