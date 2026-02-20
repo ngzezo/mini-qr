@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, nextTick } from 'vue'
+import { ref, onMounted, computed, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/utils/api'
 import StyledQRCode from '@/components/StyledQRCode.vue'
 import { Chart, registerables } from 'chart.js'
 import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import type { CornerDotType, CornerSquareType, DotType, ErrorCorrectionLevel } from 'qr-code-styling'
 
 Chart.register(...registerables)
 
@@ -13,26 +14,14 @@ const route = useRoute()
 const router = useRouter()
 
 interface Scan {
-  id: number
-  ip: string
-  user_agent: string
-  country: string | null
-  city: string | null
-  latitude: number | null
-  longitude: number | null
-  created_at: string
+  id: number; ip: string; user_agent: string
+  country: string | null; city: string | null
+  latitude: number | null; longitude: number | null; created_at: string
 }
-
 interface Analytics {
   campaign: {
-    id: number
-    name: string
-    destination_url: string
-    short_code: string
-    fg_color: string
-    bg_color: string
-    logo_url: string | null
-    qr_options: string | null
+    id: number; name: string; destination_url: string; short_code: string
+    fg_color: string; bg_color: string; logo_url: string | null; qr_options: string | null
   }
   stats: { total: number; today: number; thisWeek: number; thisMonth: number }
   recentScans: Scan[]
@@ -54,53 +43,107 @@ let chartInstance: Chart | null = null
 let countryChartInstance: Chart | null = null
 let mapInstance: L.Map | null = null
 
-// Edit form
-const editForm = ref({
+// ── Full style edit form ──────────────────────────────────────────────────
+const styleForm = ref({
+  // Campaign meta
   name: '',
   destination_url: '',
-  fg_color: '#000000',
-  bg_color: '#ffffff',
-  logo: null as File | null
+  // QR dimensions (affects export/download size, not thumbnail)
+  width: 300,
+  height: 300,
+  margin: 10,
+  borderRadius: 0,
+  // Background
+  includeBackground: true,
+  background: '#ffffff',
+  // Logo
+  image: null as string | null,   // base64 data URL
+  imageMargin: 0,
+  // Dots
+  dotsColor: '#000000',
+  dotsType: 'square' as DotType,
+  // Corners square
+  cornersSquareColor: '#000000',
+  cornersSquareType: 'extra-rounded' as CornerSquareType,
+  // Corners dot
+  cornersDotColor: '#000000',
+  cornersDotType: 'dot' as CornerDotType,
+  // Error correction
+  errorCorrectionLevel: 'Q' as ErrorCorrectionLevel,
 })
 
+const DOT_TYPES: DotType[] = ['square', 'dots', 'rounded', 'classy', 'classy-rounded', 'extra-rounded']
+const CORNER_SQUARE_TYPES: CornerSquareType[] = ['square', 'extra-rounded', 'dot']
+const CORNER_DOT_TYPES: CornerDotType[] = ['square', 'dot']
+const ECL_LEVELS: ErrorCorrectionLevel[] = ['L', 'M', 'Q', 'H']
+
+function loadLogoFile(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = (ev) => { styleForm.value.image = (ev.target as FileReader).result as string }
+  reader.readAsDataURL(file)
+}
+
+function clearLogo() { styleForm.value.image = null }
+
+// ── Live QR preview built from styleForm ─────────────────────────────────
+const PREVIEW_SIZE = 200
+
+const liveQrStyle = computed(() => ({
+  background: styleForm.value.includeBackground ? styleForm.value.background : 'transparent',
+  borderRadius: `${styleForm.value.borderRadius}px`,
+}))
+
+const liveQrProps = computed(() => ({
+  data: trackingUrl.value || 'https://example.com',
+  width: PREVIEW_SIZE,
+  height: PREVIEW_SIZE,
+  margin: styleForm.value.margin,
+  image: styleForm.value.image ?? undefined,
+  imageOptions: { margin: styleForm.value.imageMargin, crossOrigin: 'anonymous' },
+  dotsOptions: { color: styleForm.value.dotsColor, type: styleForm.value.dotsType },
+  cornersSquareOptions: { color: styleForm.value.cornersSquareColor, type: styleForm.value.cornersSquareType },
+  cornersDotOptions: { color: styleForm.value.cornersDotColor, type: styleForm.value.cornersDotType },
+  backgroundOptions: { color: styleForm.value.includeBackground ? styleForm.value.background : 'transparent' },
+  qrOptions: { errorCorrectionLevel: styleForm.value.errorCorrectionLevel },
+}))
+
+// ── helpers ───────────────────────────────────────────────────────────────
 const trackingUrl = computed(() =>
   data.value ? `${window.location.origin}/r/${data.value.campaign.short_code}` : ''
 )
 
-const parsedQrOptions = computed(() => {
-  if (!data.value?.campaign.qr_options) return null
-  try { return JSON.parse(data.value.campaign.qr_options) } catch { return null }
-})
+function populateFormFromCampaign() {
+  const c = data.value!.campaign
+  let opts: Record<string, unknown> | null = null
+  try { opts = c.qr_options ? JSON.parse(c.qr_options) : null } catch { opts = null }
 
-const qrPreviewStyle = computed(() => {
-  if (parsedQrOptions.value?.style) return parsedQrOptions.value.style
-  return { background: editForm.value.bg_color }
-})
-
-const qrPreviewProps = computed(() => {
-  if (parsedQrOptions.value) {
-    const { style: _s, includeBackground: _ib, ...rest } = parsedQrOptions.value
-    return { ...rest, data: trackingUrl.value, width: 140, height: 140 }
+  styleForm.value = {
+    name: c.name,
+    destination_url: c.destination_url,
+    width: (opts?.width as number) ?? 300,
+    height: (opts?.height as number) ?? 300,
+    margin: (opts?.margin as number) ?? 10,
+    borderRadius: parseInt((opts?.style as Record<string,string>)?.borderRadius ?? '0') || 0,
+    includeBackground: (opts?.includeBackground as boolean) ?? true,
+    background: (opts?.style as Record<string,string>)?.background ?? c.bg_color ?? '#ffffff',
+    image: (opts?.image as string) ?? null,
+    imageMargin: (opts?.imageOptions as Record<string,number>)?.margin ?? 0,
+    dotsColor: (opts?.dotsOptions as Record<string,string>)?.color ?? c.fg_color ?? '#000000',
+    dotsType: ((opts?.dotsOptions as Record<string,string>)?.type ?? 'square') as DotType,
+    cornersSquareColor: (opts?.cornersSquareOptions as Record<string,string>)?.color ?? c.fg_color ?? '#000000',
+    cornersSquareType: ((opts?.cornersSquareOptions as Record<string,string>)?.type ?? 'extra-rounded') as CornerSquareType,
+    cornersDotColor: (opts?.cornersDotOptions as Record<string,string>)?.color ?? c.fg_color ?? '#000000',
+    cornersDotType: ((opts?.cornersDotOptions as Record<string,string>)?.type ?? 'dot') as CornerDotType,
+    errorCorrectionLevel: ((opts?.qrOptions as Record<string,string>)?.errorCorrectionLevel ?? 'Q') as ErrorCorrectionLevel,
   }
-  return {
-    data: trackingUrl.value, width: 140, height: 140,
-    dotsOptions: { color: editForm.value.fg_color, type: 'square' },
-    cornersSquareOptions: { color: editForm.value.fg_color },
-    cornersDotOptions: { color: editForm.value.fg_color }
-  }
-})
+}
 
 async function load() {
   try {
     data.value = await api.get(`/campaigns/${route.params.id}/analytics`)
-    const c = data.value!.campaign
-    editForm.value = {
-      name: c.name,
-      destination_url: c.destination_url,
-      fg_color: c.fg_color,
-      bg_color: c.bg_color,
-      logo: null
-    }
+    populateFormFromCampaign()
     await nextTick()
     renderCharts()
     renderMap()
@@ -191,15 +234,34 @@ async function saveCampaign() {
   saveSuccess.value = false
   saving.value = true
   try {
-    const fd = new FormData()
-    fd.append('name', editForm.value.name)
-    fd.append('destination_url', editForm.value.destination_url)
-    fd.append('fg_color', editForm.value.fg_color)
-    fd.append('bg_color', editForm.value.bg_color)
-    if (editForm.value.logo) fd.append('logo', editForm.value.logo)
-    const updated = await api.putForm(`/campaigns/${route.params.id}`, fd)
+    // Build the full qr_options snapshot from the edit form
+    const snapshot = {
+      image: styleForm.value.image ?? null,
+      width: styleForm.value.width,
+      height: styleForm.value.height,
+      margin: styleForm.value.margin,
+      imageOptions: { margin: styleForm.value.imageMargin, crossOrigin: 'anonymous' },
+      dotsOptions: { color: styleForm.value.dotsColor, type: styleForm.value.dotsType },
+      cornersSquareOptions: { color: styleForm.value.cornersSquareColor, type: styleForm.value.cornersSquareType },
+      cornersDotOptions: { color: styleForm.value.cornersDotColor, type: styleForm.value.cornersDotType },
+      backgroundOptions: { color: styleForm.value.includeBackground ? styleForm.value.background : 'transparent' },
+      qrOptions: { errorCorrectionLevel: styleForm.value.errorCorrectionLevel },
+      style: {
+        background: styleForm.value.includeBackground ? styleForm.value.background : 'transparent',
+        borderRadius: `${styleForm.value.borderRadius}px`,
+      },
+      includeBackground: styleForm.value.includeBackground,
+    }
+    const updated = await api.put(`/campaigns/${route.params.id}`, {
+      name: styleForm.value.name,
+      destination_url: styleForm.value.destination_url,
+      fg_color: styleForm.value.dotsColor,
+      bg_color: styleForm.value.includeBackground ? styleForm.value.background : '#ffffff',
+      qr_options: JSON.stringify(snapshot),
+    })
     data.value!.campaign = updated
     saveSuccess.value = true
+    setTimeout(() => { saveSuccess.value = false }, 3000)
     await nextTick()
     renderCharts()
   } catch (e: unknown) {
@@ -258,38 +320,153 @@ onMounted(load)
         <div class="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-800">
           <h3 class="mb-4 font-semibold text-zinc-900 dark:text-zinc-100">Campaign Settings</h3>
 
+          <!-- Live preview -->
           <div class="mb-4 flex justify-center">
-            <div class="grid place-items-center overflow-hidden rounded-xl" :style="qrPreviewStyle">
-              <StyledQRCode v-bind="qrPreviewProps" />
+            <div class="grid place-items-center overflow-hidden rounded-xl" :style="liveQrStyle">
+              <StyledQRCode v-bind="liveQrProps" />
             </div>
           </div>
 
           <form @submit.prevent="saveCampaign" class="space-y-3">
+            <!-- 1. Name -->
             <div>
               <label class="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">Name</label>
-              <input v-model="editForm.name" type="text" required
+              <input v-model="styleForm.name" type="text" required
                 class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:ring-2 focus:ring-zinc-600 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100" />
             </div>
+            <!-- Destination URL -->
             <div>
               <label class="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">Destination URL</label>
-              <input v-model="editForm.destination_url" type="url" required
+              <input v-model="styleForm.destination_url" type="url" required
                 class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:ring-2 focus:ring-zinc-600 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100" />
               <p class="mt-0.5 text-xs text-zinc-400">Change this to redirect the existing QR code to a new destination</p>
             </div>
-            <div class="flex gap-4">
-              <div class="flex-1">
-                <label class="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">QR Color</label>
-                <input v-model="editForm.fg_color" type="color" class="h-8 w-16 cursor-pointer rounded border border-zinc-300 dark:border-zinc-600" />
-              </div>
-              <div class="flex-1">
-                <label class="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">Background</label>
-                <input v-model="editForm.bg_color" type="color" class="h-8 w-16 cursor-pointer rounded border border-zinc-300 dark:border-zinc-600" />
+
+            <!-- 2. Background -->
+            <div class="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+              <p class="mb-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400">Background</p>
+              <div class="flex flex-wrap items-center gap-3">
+                <label class="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-400">
+                  <input type="checkbox" v-model="styleForm.includeBackground" class="rounded" />
+                  Enable background
+                </label>
+                <div v-if="styleForm.includeBackground" class="flex items-center gap-2">
+                  <input v-model="styleForm.background" type="color"
+                    class="h-7 w-12 cursor-pointer rounded border border-zinc-300 dark:border-zinc-600" />
+                  <span class="text-xs text-zinc-500">{{ styleForm.background }}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <label class="text-xs text-zinc-600 dark:text-zinc-400">Border Radius</label>
+                  <input v-model.number="styleForm.borderRadius" type="number" min="0" max="50"
+                    class="w-16 rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100" />
+                  <span class="text-xs text-zinc-400">px</span>
+                </div>
               </div>
             </div>
-            <div>
-              <label class="mb-1 block text-xs font-medium text-zinc-600 dark:text-zinc-400">Logo (optional)</label>
-              <input type="file" accept="image/*" @change="(e) => { editForm.logo = (e.target as HTMLInputElement).files?.[0] || null }"
+
+            <!-- 3. Width / Height / Margin -->
+            <div class="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+              <p class="mb-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400">Size &amp; Margin</p>
+              <div class="flex flex-wrap gap-3">
+                <div class="flex items-center gap-1.5">
+                  <label class="text-xs text-zinc-600 dark:text-zinc-400">W</label>
+                  <input v-model.number="styleForm.width" type="number" min="100" max="2000"
+                    class="w-20 rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100" />
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <label class="text-xs text-zinc-600 dark:text-zinc-400">H</label>
+                  <input v-model.number="styleForm.height" type="number" min="100" max="2000"
+                    class="w-20 rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100" />
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <label class="text-xs text-zinc-600 dark:text-zinc-400">Margin</label>
+                  <input v-model.number="styleForm.margin" type="number" min="0" max="100"
+                    class="w-16 rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 1. Logo -->
+            <div class="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+              <p class="mb-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400">Logo</p>
+              <div v-if="styleForm.image" class="mb-2 flex items-center gap-2">
+                <img :src="styleForm.image" class="h-10 w-10 rounded object-contain" alt="Logo preview" />
+                <button type="button" @click="clearLogo"
+                  class="text-xs text-red-500 hover:text-red-700">Remove</button>
+              </div>
+              <input type="file" accept="image/*" @change="loadLogoFile"
                 class="w-full text-xs text-zinc-500 file:mr-2 file:rounded file:border-0 file:bg-zinc-100 file:px-2 file:py-1 file:text-xs dark:file:bg-zinc-700" />
+              <div class="mt-2 flex items-center gap-2">
+                <label class="text-xs text-zinc-600 dark:text-zinc-400">Image Margin</label>
+                <input v-model.number="styleForm.imageMargin" type="number" min="0" max="40"
+                  class="w-16 rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100" />
+              </div>
+            </div>
+
+            <!-- 5. Dots -->
+            <div class="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+              <p class="mb-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400">Dots</p>
+              <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-2">
+                  <label class="text-xs text-zinc-600 dark:text-zinc-400">Color</label>
+                  <input v-model="styleForm.dotsColor" type="color"
+                    class="h-7 w-12 cursor-pointer rounded border border-zinc-300 dark:border-zinc-600" />
+                </div>
+                <div class="flex items-center gap-2">
+                  <label class="text-xs text-zinc-600 dark:text-zinc-400">Type</label>
+                  <select v-model="styleForm.dotsType"
+                    class="rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100">
+                    <option v-for="t in DOT_TYPES" :key="t" :value="t">{{ t }}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- 6. Corners Square -->
+            <div class="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+              <p class="mb-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400">Corners Square</p>
+              <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-2">
+                  <label class="text-xs text-zinc-600 dark:text-zinc-400">Color</label>
+                  <input v-model="styleForm.cornersSquareColor" type="color"
+                    class="h-7 w-12 cursor-pointer rounded border border-zinc-300 dark:border-zinc-600" />
+                </div>
+                <div class="flex items-center gap-2">
+                  <label class="text-xs text-zinc-600 dark:text-zinc-400">Type</label>
+                  <select v-model="styleForm.cornersSquareType"
+                    class="rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100">
+                    <option v-for="t in CORNER_SQUARE_TYPES" :key="t" :value="t">{{ t }}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- 7. Corners Dot -->
+            <div class="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+              <p class="mb-2 text-xs font-semibold text-zinc-600 dark:text-zinc-400">Corners Dot</p>
+              <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-2">
+                  <label class="text-xs text-zinc-600 dark:text-zinc-400">Color</label>
+                  <input v-model="styleForm.cornersDotColor" type="color"
+                    class="h-7 w-12 cursor-pointer rounded border border-zinc-300 dark:border-zinc-600" />
+                </div>
+                <div class="flex items-center gap-2">
+                  <label class="text-xs text-zinc-600 dark:text-zinc-400">Type</label>
+                  <select v-model="styleForm.cornersDotType"
+                    class="rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100">
+                    <option v-for="t in CORNER_DOT_TYPES" :key="t" :value="t">{{ t }}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- 8. Error Correction Level -->
+            <div class="flex items-center gap-3">
+              <label class="text-xs font-medium text-zinc-600 dark:text-zinc-400">Error Correction</label>
+              <select v-model="styleForm.errorCorrectionLevel"
+                class="rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100">
+                <option v-for="lvl in ECL_LEVELS" :key="lvl" :value="lvl">{{ lvl }}</option>
+              </select>
             </div>
 
             <p v-if="saveError" class="text-xs text-red-600 dark:text-red-400">{{ saveError }}</p>
