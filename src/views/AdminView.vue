@@ -22,12 +22,58 @@ interface Stats {
   scansByCampaign: { name: string; count: number }[]
 }
 
-const activeTab = ref<'dashboard' | 'users' | 'campaigns'>('dashboard')
+const activeTab = ref<'dashboard' | 'users' | 'campaigns' | 'settings'>('dashboard')
 const stats = ref<Stats | null>(null)
 const users = ref<User[]>([])
 const campaigns = ref<Campaign[]>([])
 const loading = ref(true)
 const error = ref('')
+
+// Settings tab
+const currentLogo = ref<string | null>(null)
+const currentFavicon = ref<string | null>(null)
+const logoFile = ref<File | null>(null)
+const faviconFile = ref<File | null>(null)
+const settingsSaving = ref(false)
+const settingsSuccess = ref('')
+const settingsError = ref('')
+
+async function loadSiteSettings() {
+  try {
+    const data = await api.get('/settings')
+    currentLogo.value = (data as Record<string,string>).logo ?? null
+    currentFavicon.value = (data as Record<string,string>).favicon ?? null
+  } catch { /* ignore */ }
+}
+
+async function uploadSetting(type: 'logo' | 'favicon') {
+  const file = type === 'logo' ? logoFile.value : faviconFile.value
+  if (!file) return
+  settingsSaving.value = true
+  settingsError.value = ''
+  settingsSuccess.value = ''
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await api.postForm(`/settings/upload/${type}`, fd)
+    if (type === 'logo') {
+      currentLogo.value = (res as Record<string,string>).url
+      // Update header logo immediately
+      const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+      if (type === 'favicon' && link) link.href = currentFavicon.value!
+    } else {
+      currentFavicon.value = (res as Record<string,string>).url
+      const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+      if (link) link.href = currentFavicon.value!
+    }
+    settingsSuccess.value = `${type === 'logo' ? 'Logo' : 'Favicon'} updated! Reload the page to see it in the header.`
+    setTimeout(() => { settingsSuccess.value = '' }, 5000)
+  } catch (e: unknown) {
+    settingsError.value = e instanceof Error ? e.message : 'Upload failed'
+  } finally {
+    settingsSaving.value = false
+  }
+}
 
 // User edit modal
 const showUserModal = ref(false)
@@ -163,7 +209,10 @@ async function saveUser() {
   }
 }
 
-onMounted(loadDashboard)
+onMounted(() => {
+  loadDashboard()
+  loadSiteSettings()
+})
 </script>
 
 <template>
@@ -181,7 +230,7 @@ onMounted(loadDashboard)
 
     <!-- Tab bar -->
     <div class="mb-6 flex w-fit gap-1 rounded-lg border border-zinc-200 bg-zinc-100 p-1 dark:border-zinc-700 dark:bg-zinc-800">
-      <button v-for="tab in (['dashboard', 'users', 'campaigns'] as const)" :key="tab"
+      <button v-for="tab in (['dashboard', 'users', 'campaigns', 'settings'] as const)" :key="tab"
         @click="activeTab = tab"
         :class="['rounded-md px-4 py-1.5 text-sm font-medium capitalize transition-colors',
           activeTab === tab ? 'bg-white text-zinc-900 shadow dark:bg-zinc-700 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400']">
@@ -298,6 +347,48 @@ onMounted(loadDashboard)
             </tr>
           </tbody>
         </table>
+      </div>
+    </template>
+
+    <!-- SETTINGS TAB -->
+    <template v-else-if="activeTab === 'settings'">
+      <div class="max-w-lg space-y-6">
+        <p class="text-sm text-zinc-500 dark:text-zinc-400">Upload a custom logo and favicon. Changes take effect immediately — reload the page after uploading to see them in the header.</p>
+
+        <!-- Logo upload -->
+        <div class="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-800">
+          <h4 class="mb-3 font-semibold text-zinc-900 dark:text-zinc-100">Site Logo</h4>
+          <p class="mb-3 text-xs text-zinc-500 dark:text-zinc-400">Shown in the app header. Recommended: square PNG/SVG, min 192×192px.</p>
+          <div v-if="currentLogo" class="mb-3 flex items-center gap-3">
+            <img :src="currentLogo" alt="Current logo" class="h-14 w-14 rounded-xl border border-zinc-200 object-contain dark:border-zinc-700" />
+            <span class="text-xs text-zinc-500">Current logo</span>
+          </div>
+          <input type="file" accept="image/*" @change="(e) => logoFile = (e.target as HTMLInputElement).files?.[0] ?? null"
+            class="mb-3 w-full text-xs text-zinc-500 file:mr-2 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-zinc-700 dark:file:bg-zinc-700 dark:file:text-zinc-300" />
+          <button type="button" :disabled="!logoFile || settingsSaving" @click="uploadSetting('logo')"
+            class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900">
+            {{ settingsSaving ? 'Uploading…' : 'Upload Logo' }}
+          </button>
+        </div>
+
+        <!-- Favicon upload -->
+        <div class="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-800">
+          <h4 class="mb-3 font-semibold text-zinc-900 dark:text-zinc-100">Site Favicon</h4>
+          <p class="mb-3 text-xs text-zinc-500 dark:text-zinc-400">Browser tab icon. Recommended: 32×32 ICO or PNG. SVG also supported.</p>
+          <div v-if="currentFavicon" class="mb-3 flex items-center gap-3">
+            <img :src="currentFavicon" alt="Current favicon" class="h-8 w-8 rounded border border-zinc-200 object-contain dark:border-zinc-700" />
+            <span class="text-xs text-zinc-500">Current favicon</span>
+          </div>
+          <input type="file" accept="image/*,.ico" @change="(e) => faviconFile = (e.target as HTMLInputElement).files?.[0] ?? null"
+            class="mb-3 w-full text-xs text-zinc-500 file:mr-2 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-zinc-700 dark:file:bg-zinc-700 dark:file:text-zinc-300" />
+          <button type="button" :disabled="!faviconFile || settingsSaving" @click="uploadSetting('favicon')"
+            class="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900">
+            {{ settingsSaving ? 'Uploading…' : 'Upload Favicon' }}
+          </button>
+        </div>
+
+        <p v-if="settingsError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">{{ settingsError }}</p>
+        <p v-if="settingsSuccess" class="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-400">{{ settingsSuccess }}</p>
       </div>
     </template>
 

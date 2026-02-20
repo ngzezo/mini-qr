@@ -25,6 +25,7 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }))
 getDb().then(() => {
   app.use('/api/auth', require('./routes/auth'))
   app.use('/api/campaigns', require('./routes/campaigns'))
+  app.use('/api/settings', require('./routes/settings'))
   app.use('/api/admin', require('./routes/admin'))
   app.use('/r', require('./routes/redirect'))
 

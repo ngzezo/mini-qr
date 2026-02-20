@@ -3,10 +3,12 @@ import { ref, onMounted, computed, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api } from '@/utils/api'
 import StyledQRCode from '@/components/StyledQRCode.vue'
+import QRCodeFrame from '@/components/QRCodeFrame.vue'
 import { Chart, registerables } from 'chart.js'
 import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { CornerDotType, CornerSquareType, DotType, ErrorCorrectionLevel } from 'qr-code-styling'
+import type { FrameStyle } from '@/utils/framePresets'
 import { downloadPngElement, downloadJpgElement, downloadSvgElement } from '@/utils/convertToImage'
 
 Chart.register(...registerables)
@@ -71,6 +73,18 @@ const styleForm = ref({
   cornersDotType: 'dot' as CornerDotType,
   // Error correction
   errorCorrectionLevel: 'Q' as ErrorCorrectionLevel,
+  // Frame
+  showFrame: false,
+  frameText: 'Scan for more info',
+  frameTextPosition: 'bottom' as 'top' | 'bottom' | 'left' | 'right',
+  frameStyle: {
+    textColor: '#000000',
+    backgroundColor: '#ffffff',
+    borderColor: '#000000',
+    borderWidth: '1px',
+    borderRadius: '8px',
+    padding: '16px',
+  } as FrameStyle,
 })
 
 const DOT_TYPES: DotType[] = ['square', 'dots', 'rounded', 'classy', 'classy-rounded', 'extra-rounded']
@@ -149,6 +163,18 @@ function populateFormFromCampaign() {
     cornersDotColor: (opts?.cornersDotOptions as Record<string,string>)?.color ?? c.fg_color ?? '#000000',
     cornersDotType: ((opts?.cornersDotOptions as Record<string,string>)?.type ?? 'dot') as CornerDotType,
     errorCorrectionLevel: ((opts?.qrOptions as Record<string,string>)?.errorCorrectionLevel ?? 'Q') as ErrorCorrectionLevel,
+    // Frame
+    showFrame: !!(opts?.frame),
+    frameText: (opts?.frame as Record<string,string>)?.text ?? 'Scan for more info',
+    frameTextPosition: ((opts?.frame as Record<string,string>)?.position ?? 'bottom') as 'top' | 'bottom' | 'left' | 'right',
+    frameStyle: {
+      textColor: (opts?.frame as Record<string,Record<string,string>>)?.style?.textColor ?? '#000000',
+      backgroundColor: (opts?.frame as Record<string,Record<string,string>>)?.style?.backgroundColor ?? '#ffffff',
+      borderColor: (opts?.frame as Record<string,Record<string,string>>)?.style?.borderColor ?? '#000000',
+      borderWidth: (opts?.frame as Record<string,Record<string,string>>)?.style?.borderWidth ?? '1px',
+      borderRadius: (opts?.frame as Record<string,Record<string,string>>)?.style?.borderRadius ?? '8px',
+      padding: (opts?.frame as Record<string,Record<string,string>>)?.style?.padding ?? '16px',
+    } as FrameStyle,
   }
 }
 
@@ -263,6 +289,11 @@ async function saveCampaign() {
         borderRadius: `${styleForm.value.borderRadius}px`,
       },
       includeBackground: styleForm.value.includeBackground,
+      frame: styleForm.value.showFrame ? {
+        text: styleForm.value.frameText,
+        position: styleForm.value.frameTextPosition,
+        style: styleForm.value.frameStyle,
+      } : null,
     }
     const updated = await api.put(`/campaigns/${route.params.id}`, {
       name: styleForm.value.name,
@@ -334,8 +365,21 @@ onMounted(load)
 
           <!-- Live preview -->
           <div class="mb-3 flex flex-col items-center gap-2">
-            <div id="campaign-qr-export" class="grid place-items-center overflow-hidden rounded-xl" :style="liveQrStyle">
-              <StyledQRCode v-bind="liveQrProps" />
+            <div id="campaign-qr-export" class="grid place-items-center">
+              <QRCodeFrame v-if="styleForm.showFrame"
+                :frame-text="styleForm.frameText"
+                :text-position="styleForm.frameTextPosition"
+                :frame-style="styleForm.frameStyle"
+              >
+                <template #qr-code>
+                  <div class="overflow-hidden rounded-xl" :style="liveQrStyle">
+                    <StyledQRCode v-bind="liveQrProps" />
+                  </div>
+                </template>
+              </QRCodeFrame>
+              <div v-else class="overflow-hidden rounded-xl" :style="liveQrStyle">
+                <StyledQRCode v-bind="liveQrProps" />
+              </div>
             </div>
             <div class="flex gap-2">
               <button type="button" @click="downloadCampaignQR('png')"
@@ -487,6 +531,58 @@ onMounted(load)
                 class="rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100">
                 <option v-for="lvl in ECL_LEVELS" :key="lvl" :value="lvl">{{ lvl }}</option>
               </select>
+            </div>
+
+            <!-- 9. Frame -->
+            <div class="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+              <div class="mb-2 flex items-center gap-2">
+                <input id="show-frame-analytics" type="checkbox" v-model="styleForm.showFrame" class="rounded" />
+                <label for="show-frame-analytics" class="text-xs font-semibold text-zinc-600 dark:text-zinc-400">Add Frame</label>
+              </div>
+              <template v-if="styleForm.showFrame">
+                <div class="mb-3">
+                  <label class="mb-1 block text-xs text-zinc-600 dark:text-zinc-400">Frame Text</label>
+                  <input v-model="styleForm.frameText" type="text"
+                    class="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100" />
+                </div>
+                <div class="mb-3">
+                  <label class="mb-1 block text-xs text-zinc-600 dark:text-zinc-400">Text Position</label>
+                  <div class="flex gap-3">
+                    <label v-for="pos in ['top','bottom','left','right']" :key="pos" class="flex items-center gap-1 text-xs text-zinc-600 dark:text-zinc-400">
+                      <input type="radio" v-model="styleForm.frameTextPosition" :value="pos" /> {{ pos }}
+                    </label>
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <label class="mb-1 block text-xs text-zinc-500">Text Color</label>
+                    <input type="color" v-model="styleForm.frameStyle.textColor" class="h-7 w-12 cursor-pointer rounded border border-zinc-300" />
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-xs text-zinc-500">Background</label>
+                    <input type="color" v-model="styleForm.frameStyle.backgroundColor" class="h-7 w-12 cursor-pointer rounded border border-zinc-300" />
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-xs text-zinc-500">Border Color</label>
+                    <input type="color" v-model="styleForm.frameStyle.borderColor" class="h-7 w-12 cursor-pointer rounded border border-zinc-300" />
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-xs text-zinc-500">Border Width</label>
+                    <input v-model="styleForm.frameStyle.borderWidth" type="text" placeholder="1px"
+                      class="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100" />
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-xs text-zinc-500">Border Radius</label>
+                    <input v-model="styleForm.frameStyle.borderRadius" type="text" placeholder="8px"
+                      class="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100" />
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-xs text-zinc-500">Padding</label>
+                    <input v-model="styleForm.frameStyle.padding" type="text" placeholder="16px"
+                      class="w-full rounded border border-zinc-300 bg-white px-2 py-1 text-xs dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-100" />
+                  </div>
+                </div>
+              </template>
             </div>
 
             <p v-if="saveError" class="text-xs text-red-600 dark:text-red-400">{{ saveError }}</p>

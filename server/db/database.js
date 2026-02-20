@@ -90,6 +90,10 @@ async function getDb() {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`)
+  sqlDb.run(`CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  )`)
   // Migrate: add qr_options if it doesn't exist yet
   try { sqlDb.run('ALTER TABLE campaigns ADD COLUMN qr_options TEXT') } catch (_) {}
   sqlDb.run(`CREATE TABLE IF NOT EXISTS scans (

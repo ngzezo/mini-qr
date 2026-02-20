@@ -9,6 +9,7 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useSiteSettingsStore } from '@/stores/siteSettings'
 
 const { t } = useI18n()
 const { isDarkMode, isDarkModePreferenceSetBySystem, toggleDarkModePreference } =
@@ -17,6 +18,7 @@ const { isDarkMode, isDarkModePreferenceSetBySystem, toggleDarkModePreference } 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const siteSettings = useSiteSettingsStore()
 
 // Whether this is a full-screen route (no app chrome)
 const isFullScreenRoute = computed(() => ['/login', '/register'].includes(route.path))
@@ -48,6 +50,7 @@ const handleScroll = () => {
 }
 
 onMounted(() => {
+  siteSettings.loadSettings()
   document.querySelector('#app')?.addEventListener('scroll', handleScroll)
 })
 
@@ -115,6 +118,7 @@ const isModeToggleDisabled = computed(() => {
       class="hidden md:mx-auto md:mb-4 md:mt-8 md:flex md:w-5/6 md:flex-row md:justify-between md:ps-4"
     >
       <div class="flex items-center">
+        <img v-if="siteSettings.logoUrl" :src="siteSettings.logoUrl" alt="Logo" class="h-10 w-10 rounded-xl object-contain" />
         <h1 class="text-3xl text-gray-700 dark:text-gray-100">SDS QR Manager</h1>
 
         <!-- Mode toggle button - only visible on desktop -->
